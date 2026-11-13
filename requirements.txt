@@ -1,0 +1,11 @@
+# CPU-only analysis environment (probe training, fusion, CV, figures, bundle building).
+# Tested with Python 3.13. The GPU-side scripts additionally need requirements-runtime.txt.
+numpy==2.5.4
+pandas==3.0.3
+pyarrow==26.0.0
+scipy==1.18.1
+scikit-learn==1.8.0
+
+# optional
+matplotlib>=3.9      # experiments/make_figures.py
+truststore==0.10.5   # TLS-intercepting networks: experiments/download_data.py picks it up automatically

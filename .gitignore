@@ -1,0 +1,29 @@
+# environments / caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.hf/
+.cache/
+
+# downloaded data (licenses differ, see data/README.md) -- recreate with experiments/download_data.py --build
+data/raw/
+data/pool/raw/
+data/pool/problems.jsonl
+data/pool/problems_olmo.jsonl
+
+# large intermediates (hidden states, ~1.1 GB) -- recreate with the cloud/ scripts, see runs/README.md
+runs/pod/runs/hidden/
+runs/pod/runs/progress/
+runs/pod/runs/progress_alt/
+runs/pod/runs/progress_parts/
+runs/pod/runs/gen_partial/
+*.texts.jsonl.gz
+
+# machine specific / secrets
+.env
+.secrets/
+cloud/POD
+cloud/POD2
+cloud/POD3
+research/lb/

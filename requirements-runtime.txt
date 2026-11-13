@@ -1,0 +1,20 @@
+# Mirror of the competition runtime (Docker image
+# ghcr.io/aimo-interp/aimo-codabench-runtime:torch2.12.1-cuda13.2-cudnn9-transformers5.13.0-sklearn1.8.0-kernels0.15.2)
+# for the GPU-side scripts in cloud/ and for running src/ locally. Install torch from the CUDA index that matches your
+# driver, e.g.  pip install torch==2.12.1 --index-url https://download.pytorch.org/whl/cu132
+torch==2.12.1
+transformers==5.13.0
+accelerate==1.13.0
+huggingface-hub==1.22.0
+tokenizers==0.22.2
+safetensors==0.8.0
+scikit-learn==1.8.0
+pandas==3.0.3
+joblib==1.5.3
+pyarrow
+
+# gpt-oss-120b (MXFP4) loads natively only with kernels in [0.15.2, 0.16); other versions silently dequantize to bf16 and OOM
+kernels>=0.15.2,<0.16
+
+# Data generation only (never shipped in a submission), use a SEPARATE venv:
+#   vllm==0.32.0 ninja
