@@ -1,0 +1,12 @@
+Qwen3.5-4B             default pool n=322 (prog 322): fused = -4.63 + 0.84 z + 0.61 prog | rho(fused, mlog) 0.718
+Skywork-OR1-Math-7B    default pool n=322 (prog 322): fused = -3.88 + 0.49 z + 0.92 prog | rho(fused, mlog) 0.565
+Olmo-3-7B-Think        default pool n=108 (prog 72): fused = -5.38 + 0.87 z + 0.68 prog | rho(fused, mlog) 0.549
+DeepSeek-R1-0528-Qwen3 default pool n=144 (prog 144): fused = -2.14 + 0.54 z + 0.67 prog | rho(fused, mlog) 0.505
+gpt-oss-120b           high    pool n=322 (prog 322): fused = -5.83 + 0.46 z + 1.16 prog | rho(fused, mlog) 0.738
+gpt-oss-120b           low     pool n=322 (prog 322): fused = -0.94 + 0.04 z + 1.11 prog | rho(fused, mlog) 0.985
+gpt-oss-120b           medium  pool n=322 (prog 322): fused = -1.85 + 0.16 z + 1.06 prog | rho(fused, mlog) 0.735
+len_fused        n=80 AUC 0.796 balanced 0.734 acc 0.706 | Qwen3.-def:0.84 Skywor-def:0.78 Olmo-3-def:0.64 DeepSe-def:0.81 gpt-os-hig:0.73 gpt-os-low:0.80 gpt-os-med:1.00
+z_len            n=80 AUC 0.752 balanced 0.677 acc 0.660 | Qwen3.-def:0.78 Skywor-def:0.78 Olmo-3-def:0.50 DeepSe-def:0.76 gpt-os-hig:0.69 gpt-os-low:0.90 gpt-os-med:0.94
+z_len+len_prog   n=76 AUC 0.811 balanced 0.704 acc 0.700 | Qwen3.-def:0.81 Skywor-def:0.74 DeepSe-def:0.76 gpt-os-hig:0.73 gpt-os-low:1.00 gpt-os-med:0.96
+decision: logit = -0.336 + -2.142 * len_fused
+wrote 7 artifacts to runs\v1\art_fused

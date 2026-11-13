@@ -1,0 +1,3 @@
+{"model": "openai/gpt-oss-120b", "stage": "cold", "import_s": 2.3, "load_s": 7.1, "mem_gb": 60.8, "tokenizer": "TokenizersBackend"}
+{"model": "openai/gpt-oss-120b", "stage": "gen", "batch": 32, "new_tokens": 2048, "seconds": 104.3, "tok_s": 628, "step_ms": 50.9, "peak_gb": 64.6}
+{"model": "openai/gpt-oss-120b", "stage": "gen", "batch": 64, "new_tokens": 2048, "seconds": 161.5, "tok_s": 812, "step_ms": 78.9, "peak_gb": 68.4}

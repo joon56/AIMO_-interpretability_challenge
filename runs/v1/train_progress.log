@@ -1,0 +1,28 @@
+allenai_Olmo-3-7B-Think__default cap 2560 layer 16: sample-level rho 0.032, problem-level len_mix rho 0.094 (288 running samples, 72 problems)
+allenai_Olmo-3-7B-Think__default cap 2560 layer 24: sample-level rho 0.106, problem-level len_mix rho 0.151 (288 running samples, 72 problems)
+allenai_Olmo-3-7B-Think__default cap 2560 layer 32: sample-level rho 0.182, problem-level len_mix rho 0.264 (288 running samples, 72 problems)
+deepseek-ai_DeepSeek-R1-0528-Qwen3-8B__default cap 3072 layer 18: sample-level rho 0.063, problem-level len_mix rho 0.079 (288 running samples, 144 problems)
+deepseek-ai_DeepSeek-R1-0528-Qwen3-8B__default cap 3072 layer 27: sample-level rho 0.168, problem-level len_mix rho 0.240 (288 running samples, 144 problems)
+deepseek-ai_DeepSeek-R1-0528-Qwen3-8B__default cap 3072 layer 36: sample-level rho 0.288, problem-level len_mix rho 0.358 (288 running samples, 144 problems)
+  -> best layer 36: train rows n=10/10 AUC(-len_prog) 0.619
+openai_gpt-oss-120b__high cap 1536 layer 18: sample-level rho 0.500, problem-level len_mix rho 0.702 (1889 running samples, 322 problems)
+openai_gpt-oss-120b__high cap 1536 layer 27: sample-level rho 0.454, problem-level len_mix rho 0.648 (1889 running samples, 322 problems)
+openai_gpt-oss-120b__high cap 1536 layer 36: non-finite states, skipped
+  -> best layer 18: train rows n=15/15 AUC(-len_prog) 0.654
+openai_gpt-oss-120b__low cap 1536 layer 18: sample-level rho 0.376, problem-level len_mix rho 0.984 (769 running samples, 322 problems)
+openai_gpt-oss-120b__low cap 1536 layer 27: sample-level rho 0.348, problem-level len_mix rho 0.982 (769 running samples, 322 problems)
+openai_gpt-oss-120b__low cap 1536 layer 36: sample-level rho 0.320, problem-level len_mix rho 0.985 (769 running samples, 322 problems)
+  -> best layer 36: train rows n=7/7 AUC(-len_prog) 0.700
+openai_gpt-oss-120b__medium cap 1536 layer 18: sample-level rho 0.441, problem-level len_mix rho 0.736 (1707 running samples, 322 problems)
+openai_gpt-oss-120b__medium cap 1536 layer 27: sample-level rho 0.342, problem-level len_mix rho 0.674 (1707 running samples, 322 problems)
+openai_gpt-oss-120b__medium cap 1536 layer 36: non-finite states, skipped
+  -> best layer 18: train rows n=15/15 AUC(-len_prog) 1.000
+Qwen_Qwen3.5-4B__default cap 3072 layer 16: sample-level rho 0.346, problem-level len_mix rho 0.527 (1288 running samples, 322 problems)
+Qwen_Qwen3.5-4B__default cap 3072 layer 24: sample-level rho 0.373, problem-level len_mix rho 0.538 (1288 running samples, 322 problems)
+Qwen_Qwen3.5-4B__default cap 3072 layer 32: sample-level rho 0.323, problem-level len_mix rho 0.456 (1288 running samples, 322 problems)
+  -> best layer 24: train rows n=12/12 AUC(-len_prog) 0.969
+Skywork_Skywork-OR1-Math-7B__default cap 4096 layer 14: sample-level rho 0.207, problem-level len_mix rho 0.446 (1220 running samples, 322 problems)
+Skywork_Skywork-OR1-Math-7B__default cap 4096 layer 21: sample-level rho 0.218, problem-level len_mix rho 0.475 (1220 running samples, 322 problems)
+Skywork_Skywork-OR1-Math-7B__default cap 4096 layer 28: sample-level rho 0.078, problem-level len_mix rho 0.279 (1220 running samples, 322 problems)
+  -> best layer 21: train rows n=12/12 AUC(-len_prog) 0.852
+wrote runs\v1\report\train_rows_prog.csv

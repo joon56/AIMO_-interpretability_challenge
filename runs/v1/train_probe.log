@@ -1,0 +1,22 @@
+gen configs: {'Qwen3.5-4B|default': 322, 'Skywork-OR1-Math-7B|default': 322, 'Olmo-3-7B-Think|default': 108, 'DeepSeek-R1-0528-Qwen3-8B|default': 144, 'gpt-oss-120b|low': 322, 'gpt-oss-120b|medium': 322, 'gpt-oss-120b|high': 322}
+[oracle] AUC -relative loglen 0.842; rule rel<0: acc 0.797
+[oracle] 79 train rows: AUC solve-rate 0.627, AUC -loglen 0.676
+[probe] Qwen3.5-4B             default solve n=322 best rho=0.684 (last L22); next [(np.float64(0.68), 'last', 24), (np.float64(0.67), 'last', 32)]
+[probe] Qwen3.5-4B             default len   n=322 best rho=0.693 (last L32); next [(np.float64(0.68), 'last', 22), (np.float64(0.67), 'last', 24)]
+[probe] Skywork-OR1-Math-7B    default solve n=322 best rho=0.631 (last L19); next [(np.float64(0.62), 'last', 21), (np.float64(0.61), 'last', 28)]
+[probe] Skywork-OR1-Math-7B    default len   n=322 best rho=0.516 (last L21); next [(np.float64(0.51), 'last', 19), (np.float64(0.5), 'last', 28)]
+[probe] Olmo-3-7B-Think        default solve n=108 best rho=0.540 (last L32); next [(np.float64(0.5), 'last', 22), (np.float64(0.5), 'last', 24)]
+[probe] Olmo-3-7B-Think        default len   n=108 best rho=0.530 (last L16); next [(np.float64(0.53), 'last', 24), (np.float64(0.52), 'last', 22)]
+[probe] DeepSeek-R1-0528-Qwen3-8B default solve n=144 best rho=0.493 (last L27); next [(np.float64(0.45), 'last', 24), (np.float64(0.42), 'last', 36)]
+[probe] DeepSeek-R1-0528-Qwen3-8B default len   n=144 best rho=0.436 (last L27); next [(np.float64(0.43), 'mean', 36), (np.float64(0.42), 'last', 24)]
+[probe] gpt-oss-120b           low     solve n=322 best rho=0.534 (mean L24); next [(np.float64(0.52), 'mean', 18), (np.float64(0.52), 'last', 12)]
+[probe] gpt-oss-120b           low     len   n=322 best rho=0.391 (mean L24); next [(np.float64(0.38), 'mean', 18), (np.float64(0.37), 'mean', 9)]
+[probe] gpt-oss-120b           medium  solve n=322 best rho=0.568 (mean L18); next [(np.float64(0.56), 'last', 12), (np.float64(0.56), 'mean', 24)]
+[probe] gpt-oss-120b           medium  len   n=322 best rho=0.459 (mean L24); next [(np.float64(0.44), 'mean', 27), (np.float64(0.44), 'mean', 18)]
+[probe] gpt-oss-120b           high    solve n=322 best rho=0.453 (mean L18); next [(np.float64(0.45), 'mean', 24), (np.float64(0.45), 'mean', 27)]
+[probe] gpt-oss-120b           high    len   n=322 best rho=0.626 (mean L18); next [(np.float64(0.61), 'mean', 24), (np.float64(0.6), 'mean', 27)]
+[robust] 80 train rows: AUC z_solve 0.722, AUC -z_len 0.768
+[robust] grouped5x20 z_solve         AUC 0.665 balanced 0.649 acc 0.678
+[robust] grouped5x20 z_len           AUC 0.752 balanced 0.677 acc 0.660
+[robust] grouped5x20 z_solve+z_len   AUC 0.702 balanced 0.625 acc 0.636
+artifacts: ['Qwen_Qwen3.5-4B__default.npz', 'Skywork_Skywork-OR1-Math-7B__default.npz', 'allenai_Olmo-3-7B-Think__default.npz', 'deepseek-ai_DeepSeek-R1-0528-Qwen3-8B__default.npz', 'openai_gpt-oss-120b__high.npz', 'openai_gpt-oss-120b__low.npz', 'openai_gpt-oss-120b__medium.npz']
