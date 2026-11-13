@@ -19,9 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----------------------------------------------------------------------------
-Scope: the license above covers the code, documentation, figures and the
-probe artifacts produced in this repository. Datasets (MathArena problems,
-aimo-interp train/val data) and model weights are NOT redistributed here and
-keep their own licenses -- see data/README.md.
