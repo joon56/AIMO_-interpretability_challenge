@@ -1,0 +1,1 @@
+root@<pod-ip> -p <ssh-port> -i ~/.ssh/id_ed25519

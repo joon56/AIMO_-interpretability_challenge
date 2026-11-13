@@ -1,0 +1,2 @@
+{"id": "p2_gen_olmo_B1", "ngpu": 1, "cmd": "PATH=/workspace/venv-vllm/bin:$PATH /workspace/venv-vllm/bin/python cloud/gen_solve.py --outdir runs/gen --model allenai/Olmo-3-7B-Think --n 3 --problems data/pool/problems_olmo.jsonl --chunk 12 --start 72 --end 96"}
+{"id": "p2_gen_olmo_B2", "ngpu": 1, "cmd": "PATH=/workspace/venv-vllm/bin:$PATH /workspace/venv-vllm/bin/python cloud/gen_solve.py --outdir runs/gen --model allenai/Olmo-3-7B-Think --n 3 --problems data/pool/problems_olmo.jsonl --chunk 12 --start 96 --end 120"}

@@ -1,0 +1,12 @@
+{"id": "p2_gen_gptoss_r2", "ngpu": 2, "cmd": "PATH=/workspace/venv-vllm/bin:$PATH /workspace/venv-vllm/bin/python cloud/gen_solve.py --outdir runs/gen --model openai/gpt-oss-120b --efforts low,medium,high --n 6 --tp 2 --chunk 322 --attn TRITON_ATTN"}
+{"id": "p2_gen_olmo_A_r2", "ngpu": 1, "cmd": "PATH=/workspace/venv-vllm/bin:$PATH /workspace/venv-vllm/bin/python cloud/gen_solve.py --outdir runs/gen --model allenai/Olmo-3-7B-Think --n 4 --problems data/pool/problems_olmo.jsonl --start 0 --end 72 --chunk 72"}
+{"id": "p2_gen_olmo_B_r2", "ngpu": 1, "cmd": "PATH=/workspace/venv-vllm/bin:$PATH /workspace/venv-vllm/bin/python cloud/gen_solve.py --outdir runs/gen --model allenai/Olmo-3-7B-Think --n 4 --problems data/pool/problems_olmo.jsonl --start 72 --end 144 --chunk 72"}
+{"id": "p2_hidden_olmo", "ngpu": 1, "short": true, "cmd": "/workspace/venv-rt/bin/python cloud/extract_hidden.py --model allenai/Olmo-3-7B-Think --efforts default --out runs/hidden"}
+{"id": "p2_bench_olmo", "ngpu": 1, "short": true, "cmd": "mkdir -p runs/bench && /workspace/venv-rt/bin/python cloud/bench_hf.py --model allenai/Olmo-3-7B-Think --batches 32,64 --new-tokens 2048 > runs/bench/allenai_Olmo-3-7B-Think__default.jsonl"}
+{"id": "p2_hidden_gptoss_r3", "ngpu": 1, "short": true, "cmd": "/workspace/venv-rt/bin/python cloud/extract_hidden.py --model openai/gpt-oss-120b --efforts low,medium,high --out runs/hidden"}
+{"id": "p2_prog_gptoss_lowmed", "ngpu": 1, "short": true, "cmd": "for c in 1536 1792 2048; do /workspace/venv-rt/bin/python cloud/extract_progress.py --model openai/gpt-oss-120b --efforts low,medium --cap $c; done"}
+{"id": "p2_prog_gptoss_high", "ngpu": 1, "short": true, "cmd": "for c in 1536 1792 2048; do /workspace/venv-rt/bin/python cloud/extract_progress.py --model openai/gpt-oss-120b --efforts high --cap $c; done"}
+{"id": "p2_bench_gptoss", "ngpu": 1, "short": true, "cmd": "mkdir -p runs/bench && /workspace/venv-rt/bin/python cloud/bench_hf.py --model openai/gpt-oss-120b --effort low --batches 32,64 --new-tokens 2048 > runs/bench/openai_gpt-oss-120b__low.jsonl"}
+{"id": "p2_beh_gptoss_low", "ngpu": 1, "cmd": "/workspace/venv-rt/bin/python cloud/collect_behavior.py --model openai/gpt-oss-120b --efforts low"}
+{"id": "p2_beh_gptoss_med", "ngpu": 1, "cmd": "/workspace/venv-rt/bin/python cloud/collect_behavior.py --model openai/gpt-oss-120b --efforts medium"}
+{"id": "p2_beh_gptoss_high", "ngpu": 1, "cmd": "/workspace/venv-rt/bin/python cloud/collect_behavior.py --model openai/gpt-oss-120b --efforts high"}
