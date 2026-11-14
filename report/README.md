@@ -10,7 +10,7 @@ appendix. SHA-256 (first 16 hex): `801b3dd54e8ca31f`.
 | `AIMO_report.pdf` | the submitted PDF |
 | `paper/main.tex`, `paper/refs.bib` | LaTeX source |
 | `paper/neurips_2026.sty` | the official NeurIPS 2026 style file (`dblblindworkshop` option), kept under its own terms |
-| `paper/figures/fig_pipeline.pdf`, `fig_main.pdf` | the two figures of the report |
+| `paper/figures/fig_pipeline.pdf`, `fig_main.pdf` (+ `.png` previews) | the two figures of the report |
 | `make_figures.py` | regenerates both figures from `runs/` |
 | `report_numbers.py` | recomputes every number quoted in the report and writes `numbers.json` |
 | `numbers.json` | the numbers of Table 1 and Table 2 (per-configuration probe quality, thresholds, ablation, bootstrap intervals) |
