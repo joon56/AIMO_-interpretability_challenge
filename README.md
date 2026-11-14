@@ -23,19 +23,25 @@
 > the problem is for that particular model**, and that the **length of the model's own reasoning** is a sharp, continuous
 > measure of that difficulty (oracle AUC 0.84, versus 0.63 for the solve rate). So we predict each model's reasoning length
 > from its **hidden states** -- one forward pass over the prompt, plus the hidden states of the partial reasoning traces it
-> samples inside the time budget -- center it on the model's typical length, and cut at the median.
+> samples inside the time budget -- center it on the model's typical length, and cut at a per-model threshold.
+>
+> **Status (14 Nov 2026).** Final submissions: **v3-main** (Main track) and **v3-small** (Small track). The technical report
+> was submitted on 4 Nov and is in [`report/`](report/); the bundles, artifacts, scripts and every result behind it are in this
+> repository. The sections below tell the story in order, from the first version (v1) to the final one (v3).
 
 ## At a glance
 
 | | |
 |---|---|
-| **Task** | `are_robust(model_id, problems, reasoning_effort) -> list[bool]` for 5 models / 7 configurations, about 170 s per case on one RTX PRO 6000, offline, plain `transformers` |
-| **Signal** | hidden-state probes (prompt-state probe + progress probe), trained on a label-free pool of 322 problems; only the final decision uses the 80 official labelled rows |
-| **Decision** | robust $\Leftrightarrow$ predicted reasoning length $\le$ the model's pool median |
-| **Cross-validation** (80 official rows, grouped by problem template) | AUC **0.796**, balanced accuracy **0.734**; prompt probe alone 0.752 / 0.677; black-box length estimate 0.62 |
-| **Codabench validation, Main (21 cases)** | probe-only **0.667**, full white-box with a mis-set threshold 0.571, always-`True` baseline 0.476 (one standard error is about 0.11) |
+| **Task** | `are_robust(model_id, problems, reasoning_effort) -> list[bool]` for 5 models / 7 configurations, 160 s per call (enforced in the final evaluation) on one RTX PRO 6000, offline, plain `transformers` |
+| **Signal** | hidden-state probes (prompt-state probe + progress probe), trained on a label-free pool of 322 problems; the 80 official labelled rows only score the rules |
+| **Decision** | robust $\Leftrightarrow$ predicted reasoning length $\le$ a per-model threshold: the pool median (v1/v2), refined in the **final v3** to the 0.7-quantile among the pool problems the model reliably solves |
+| **Final rule v3 on the 80 official rows** (scored, nothing fitted) | AUC **0.804**, accuracy 0.787, balanced accuracy **0.749** (v2: 0.762 / 0.716) |
+| **White-box ablation** (61 rows with samples) | hidden-state readout AUC **0.82** vs **0.60** for a black-box length estimate from the same samples (95% CI of the gap 0.04-0.41) |
+| **Cross-validation of v1** (80 rows, grouped by template) | AUC 0.796, balanced accuracy 0.734; prompt probe alone 0.752 / 0.677 |
+| **Codabench validation, final v3** | **Main 0.619 (13/21), Small 0.643 (9/14)**, against 0.476 / 0.500 for a constant. The board cannot rank the methods (standard error 0.11 / 0.13): v3b black-box 0.619 / 0.571, v3p probe-only 0.667 / 0.571 |
 | **Data generated** | 9,056 reasoning traces, 114 M tokens, 7 configurations, 322 problems, on about $80 of GPU credit |
-| **Built in** | about 15 hours of wall-clock time (26 Oct 18:00 to 27 Oct 09:00 KST) together with an AI coding agent ([disclosure](#10-data-licenses-compliance-and-ai-disclosure)) |
+| **Built in** | v1 and v2 in about 15 hours of wall-clock time (26 Oct 18:00 to 27 Oct 09:00 KST), v3 and the report by 4 Nov, together with an AI coding agent ([disclosure](#10-data-licenses-compliance-and-ai-disclosure)) |
 
 <details>
 <summary><b>Table of contents</b></summary>
@@ -92,16 +98,18 @@ Cases whose base answer is not consistently correct are excluded. The scoring me
 
 **Evaluation rules that shape the design.**
 
-* The function is called **once per case in a fresh process**, with about **170 s per case** including imports and model load;
-  no network, only the packages of the competition image (torch 2.12.1, transformers 5.13.0, no vLLM), one shared
+* The function is called **once per case in a fresh process**, with about **170 s per case** including imports and model load
+  at planning time; on 30 Oct the organizers fixed the final limit at **160 s per call**, and an overrun counts as a wrong
+  answer. No network, only the packages of the competition image (torch 2.12.1, transformers 5.13.0, no vLLM), one shared
   96 GB RTX PRO 6000. No state survives between cases.
 * **Validation** (Codabench): 21 Main / 14 Small cases, *balanced* per problem and per model, so a constant guess scores about
   0.48 / 0.50. **Test**: 30-50 cases per track on new, unpublished problems.
 * **Training data**: 94 rows over 36 problems, 80 of them labelled, *74% of those robust* -- unlike the balanced validation/test sets.
 * **White-box award** (+$1,000 per track): the verdict must depend on internal signals (activations, probes, SAEs, interventions);
   token probabilities and entropy do not qualify. The report needs an ablation with and without the white-box part.
-* Prizes: Main $2,500 / $1,000 / $500, Small $1,500 / $700 / $300, writeup prizes $4,000. Submissions closed 1 Nov 2026 (AoE),
-  reports were due 5 Nov, award decisions are announced 15 Nov.
+* Prizes: Main $2,500 / $1,000 / $500, Small $1,500 / $700 / $300, writeup prizes $4,000. The submission phase was extended
+  and ended on 2 Nov 2026 (12:00 UTC), reports were due 5 Nov, award decisions are announced 15 Nov. Each participant nominates
+  two submissions, and the final score is the better of the two.
 
 This repository documents the **validation-phase work**. The hidden test evaluation is run by the organizers and is not
 reproduced here.
@@ -170,7 +178,7 @@ flowchart LR
     B --> C["len_mix"]
     A --> D["len_fused"]
     C --> D
-    D --> E{"len_fused ≤ 0 ?"}
+    D --> E{"len_fused ≤ θ_c ?"}
     E -- yes --> R["robust: True"]
     E -- no --> N["non-robust: False"]
   end
@@ -190,8 +198,17 @@ compute, and it still works when no trace finishes**, which is the case for Qwen
 [METHOD.md](docs/METHOD.md#3-progress-probe-len_prog)).
 
 **Fusion and decision.** Per configuration, an ordinary-least-squares fit on the label-free pool combines the two estimates into
-`len_fused`, centered on the pool median. A single rule is shared by all seven configurations: **robust if `len_fused` is not
-above zero** -- the model's pool median, because the validation and test sets are balanced per model.
+`len_fused`, centered on the pool median. v1 and v2 called a case robust if `len_fused` is not above zero -- the model's pool
+median, because the validation and test sets are balanced per model.
+
+**Capability-aware threshold (v3, final).** Cases exist only for problems that the model solves consistently, but the pool
+median also counts the problems it fails. gpt-oss-120b at low effort shows why that matters: over the whole pool its shorter
+traces are *less* often correct (Spearman $-0.20$, against $+0.53$ to $+0.97$ for the other configurations), because low effort
+stops early on problems it fails. v3 therefore puts the threshold $\theta_c$ at the 0.7-quantile of `len_fused` over the pool
+problems the configuration reliably solves (at least one finished sample, every finished sample correct), which moves it to
+$+0.17$ for gpt-oss low and $+0.16$ for high and keeps it within $0.06$ of zero for the other five. Nothing is fitted to the
+official labels; they only score the rule. Details in [METHOD.md](docs/METHOD.md#the-v3-rule-capability-aware-threshold) and
+section 4.6.
 
 **Safety rails.** `are_robust` never raises (any failure returns the constant `True`); a failed sampling pass falls back to the
 prompt probe; an out-of-memory error halves K; every stage has a wall-clock deadline; each case prints one diagnostic line with
@@ -201,11 +218,16 @@ Complete specification, equations, artifact format and the per-model hyper-param
 
 ### The versions we built
 
-| version | decision | status |
+| version | decision | Codabench validation (Main / Small) |
 |---|---|---|
-| **v1p** | prompt-state probe only, `z_len <= -0.079` (logistic fitted on the official rows), **no sampling** | evaluated on Codabench Main |
-| **v1** | `len_fused <= -0.157` (logistic fitted on the official rows) | evaluated on Codabench Main |
-| **v2** | `len_fused <= 0` -- v1 with the intercept removed | built; its score is not recorded in this repository |
+| **v1p** | prompt-state probe only, `z_len <= -0.079` (logistic fitted on the official rows), **no sampling** | 0.667 / not run |
+| **v1** | `len_fused <= -0.157` (logistic fitted on the official rows) | 0.571 / not run |
+| **v2** | `len_fused <= 0` -- v1 with the intercept removed | 0.619 / 0.643 |
+| **v3 (final, nominated)** | `len_fused <= theta_c`, the capability-aware threshold above | **0.619 / 0.643** |
+| v3b (ablation) | black-box: same samples, decision on the censored length estimate `len_beh <= 0`, no hidden states | 0.619 / 0.571 |
+| v3p (ablation) | probe-only: prompt-state `z_len <= theta_z`, no sampling | 0.667 / 0.571 |
+
+All bundles contain the same code (`src/`); they differ only in their `.npz` artifacts.
 
 ## 4. Results
 
@@ -246,6 +268,10 @@ Repeated (20x) grouped 5-fold cross-validation on the 80 official labelled rows;
 actually gets worse with fusion (0.90 to 0.80, n = 7), Skywork is unchanged, and Qwen, Olmo, DeepSeek, gpt-oss-medium and -high
 improve. We read these bars as consistent with the pooled result, not as individually significant.*
 
+The cross-validation above refits a logistic decision on the labels. The final rule v3 fits nothing to them: scored on the same
+80 rows it reaches AUC 0.804 (threshold-free, the same for v2), accuracy 0.787 and balanced accuracy 0.749, against 0.762 and
+0.716 for v2 (section 4.6).
+
 ### 4.3 Ablation: what does the white-box part add?
 
 Fair comparison on the 61 official rows for which the submission's own sampler was also run (so every feature is available):
@@ -262,20 +288,39 @@ to empty for four of the five models at this token budget. The hidden states of 
 information, and the answer-agreement feature hurts. Adding the solve-rate probe `z_solve` to `z_len` also *reduced*
 cross-validated AUC.
 
-### 4.4 Codabench validation (Main track, 21 cases)
+**The same ablation with the final rule** (report, Table 2; the same 61 rows, each method at its deployed threshold):
 
-| bundle | what it is | accuracy |
-|---|---|---:|
-| `baseline-always-true-main` | official constant baseline | 0.476 (0.48 on the board) |
-| **`v1p-main`** | prompt-state probe only, no sampling | **0.667** (14/21) |
-| `v1-main` | full white-box, threshold fitted on the official rows | 0.571 (12/21) |
-| `v2-main` | `v1-main` with the threshold at the pool median | not recorded here |
+| method | reads hidden states? | AUC | balanced acc. | validation Main / Small |
+|---|:---:|---:|---:|---:|
+| black-box length estimate from the same samples (v3b) | no | 0.603 | 0.578 | 0.619 / 0.571 |
+| prompt probe `z_len` at its capability threshold (v3p) | yes | 0.790 | 0.719 | 0.667 / 0.571 |
+| **fused `len_fused`, capability threshold (v3, final)** | yes | **0.818** | **0.786** | **0.619 / 0.643** |
 
-With 21 cases a score has a standard error of about 0.11, so 0.571 and 0.667 are statistically indistinguishable from each other;
-v1p is about 1.7 standard errors above the constant baseline. For scale: in the public leaderboard snapshot of 26 Oct, steady
-participants (7-15 runs each) averaged 0.66-0.68 on Main, and the single best score (0.86, 18/21) belonged to a participant whose
-20 runs averaged 0.34 -- a maximum of noise. v1 ran flawlessly on the evaluation worker: 0 sampling failures, **88-104 s per
-case**, 2,122 s for all 21 cases. Per-submission details: [docs/SUBMISSION_LEDGER.md](docs/SUBMISSION_LEDGER.md).
+Reading the hidden states of the same samples lifts the AUC from 0.60 to 0.82; the 95% bootstrap interval of the gap
+(resampling template groups) is 0.04 to 0.41. Adding the progress probe to the prompt probe is within noise (interval -0.09
+to 0.13). On the validation board the three methods are one or two cases apart (22 / 22 / 21 of 35), which no 35-case board
+can resolve; the evidence for the white-box component is the training rows, not the board.
+
+### 4.4 Codabench validation (Main 21 cases, Small 14 cases)
+
+| bundle | what it is | Main | Small |
+|---|---|---:|---:|
+| `baseline-always-true` | official constant baseline | 0.476 (10/21) | 0.500 (7/14) |
+| `v1p` | prompt-state probe only, no sampling, threshold fitted on the official rows | 0.667 (14/21) | not run |
+| `v1` | full white-box, threshold fitted on the official rows | 0.571 (12/21) | not run |
+| `v2` | `v1` with the threshold at the pool median | 0.619 (13/21) | 0.643 (9/14) |
+| **`v3`** | **final**: capability-aware threshold (section 4.6) | **0.619 (13/21)** | **0.643 (9/14)** |
+| `v3b` | black-box ablation: same samples, no hidden states | 0.619 (13/21) | 0.571 (8/14) |
+| `v3p` | probe-only ablation, capability threshold | 0.667 (14/21) | 0.571 (8/14) |
+
+With 21 (14) cases a score has a standard error of about 0.11 (0.13), so every gap in this table is one or two cases and the
+board cannot rank the methods: the final v3 is 1.1-1.3 standard errors above a constant, suggestive and not significant, and
+the 35 cases cannot separate it from its black-box and probe-only ablations (22 / 21 / 22 correct). For scale: in the public
+leaderboard snapshot of 26 Oct, steady participants (7-15 runs each) averaged 0.66-0.68 on Main, and the single best score
+(0.86, 18/21) belonged to a participant whose 20 runs averaged 0.34 -- a maximum of noise. The pipeline ran flawlessly on the
+evaluation worker: 0 sampling failures, **88-104 s per case** (2,122 s for all 21 Main cases), which leaves about 55 s of margin
+under the 160 s per call that the final evaluation enforces. Per-submission details, IDs and the reasoning behind the final
+nomination: [docs/SUBMISSION_LEDGER.md](docs/SUBMISSION_LEDGER.md).
 
 ### 4.5 Why v1 scored 0.571: a label-free diagnosis
 
@@ -293,6 +338,38 @@ a validation set that is half robust:
   stated prevalence mismatch (`experiments/make_v2_artifacts.py`). On the same 21 feature vectors it predicts robust for 10.
 
 Notably, the probe-only bundle (v1p, threshold -0.079, close to the median) was already closer to balanced and scored higher.
+v2 then scored 0.619 on Main and 0.643 on Small (4.4).
+
+### 4.6 The final rule: a capability-aware threshold (v3)
+
+v2 put each model's threshold at its pool median. But a validation or test case exists only if the model solves the problem
+*consistently* (the organizers exclude the rest, so that labels cannot be read off the base accuracy), and the pool median also
+counts the problems the model fails. That misplaces the boundary for a model that answers hard problems quickly and wrongly --
+gpt-oss-120b at low effort:
+
+<p align="center"><img src="report/paper/figures/fig_main.png" width="820" alt="Fused scores of the official rows with the two thresholds, and the share of reliably solved problems by length quintile"></p>
+
+*Figure 5 (Figure 2 of the report). (a) Fused score of the official rows (not used for fitting) with the pool-median threshold
+(grey) and the capability-aware threshold (black). (b) Share of pool problems that a model reliably solves (every finished
+trace correct), by quintile of its own mean reasoning length. For gpt-oss at medium and high effort a short trace means a
+reliably solved problem; at low effort the share is flat at about 0.30 across the first four quintiles, so length carries no
+reliability signal over the whole pool (Spearman between solve rate and $-$length: $-0.20$, against $+0.53$ to $+0.97$ elsewhere).*
+
+Restricted to the problems a model reliably solves -- where cases come from -- the ordering returns for every configuration:
+`len_fused` correlates positively with the *other* models' failure rate on the same problem (gpt-oss low $+0.22$, the others
+$+0.21$ to $+0.68$). The rule therefore sets $\theta_c$ at the 0.7-quantile of `len_fused` over those problems:
+
+| configuration | Qwen | Skywork | Olmo | DeepSeek | gpt-oss low | gpt-oss medium | gpt-oss high |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| $\theta_c$ (v2: 0 everywhere) | -0.04 | -0.05 | -0.03 | -0.04 | **+0.17** | -0.01 | **+0.16** |
+
+Scored on the 80 official rows, the move from the pool median to $\theta_c$ raises accuracy from 0.762 to 0.787 and balanced
+accuracy from 0.716 to 0.749 -- two to three cases, so **the argument for v3 is the mechanism, not the gain**. $\rho = 0.7$ is
+the one number the labels inform: it sits slightly below the natural robust rate among consistently solved training cases
+(0.74), as a hedge toward balanced test populations; sweeping $\rho$ from 0.5 to 0.8 moves the balanced accuracy between 0.646
+and 0.762 (table in [METHOD.md](docs/METHOD.md#the-v3-rule-capability-aware-threshold)). Nothing else is fitted to the
+official labels. The choice of v3 over v1p and over the probe-only v3p was re-checked on the training rows, not on the
+validation board ([ledger](docs/SUBMISSION_LEDGER.md#why-v3-and-not-v1p-v2-or-v3p)).
 
 ## 5. What did not work
 
@@ -304,6 +381,10 @@ Notably, the probe-only bundle (v1p, threshold -0.079, close to the median) was 
 | Leave-one-group-out CV | strongly pessimistic for weak features (synthetic null features scored AUC 0.02-0.28 at this n); repeated grouped 5-fold is used for all comparisons |
 | Probe hyper-parameter sweeps (PCA 16-64, ridge alpha, layer pairs) | at most +0.03 Spearman; kept one simple configuration |
 | A decision threshold fitted on the official rows | did not transfer to a balanced population (section 4.5) |
+| Consensus-difficulty probe: a third fusion input trained on the other models' z-scored lengths (`experiments/consensus_probe.py`) | pool correlation rose for DeepSeek (0.47 to 0.51) and nowhere else; training AUC 0.803 to 0.820, which comes from two non-robust Olmo rows; accuracy unchanged. Rejected by the rule fixed beforehand (log T5) |
+| Re-fitting the progress-probe recipe (concatenated layers, PCA 32/64, ridge 10/100) | the best variant per configuration gains 0.01-0.05 Spearman, but it is the maximum over 9-12 variants (selection bias); not adopted (log T8) |
+| A longer token cap with fewer samples for gpt-oss and Skywork (a GPU re-run) | black-box length estimates improve (gpt-oss medium: Spearman 0.66 to 0.90 at 3-4k tokens), but the expected gain is 0.1-0.3 of the 30-50 test cases per track, for $30-40 and deadline risk; not done (log T7, T9) |
+| Choosing between v1p, v2, v3 and the ablations by validation score | one 21-case score has a standard error of 0.11 and every gap is one or two cases; the choice used the training rows (log S1, S2) |
 
 ## 6. Engineering lessons
 
@@ -339,9 +420,12 @@ Details, numbers and fixes are in **[docs/ENGINEERING_NOTES.md](docs/ENGINEERING
 │   ├── train_progress.py                 progress probes                -> len_prog
 │   ├── fuse.py                           per-model fusion + decision    -> len_fused, v1 artifacts
 │   ├── make_v2_artifacts.py              v2 rule: threshold at the pool median
+│   ├── capability_threshold.py           v3 rule (final): label-free capability-aware thresholds -> runs/v3/art
+│   ├── make_ablation.py                  black-box (v3b) and probe-only (v3p) ablation artifacts
+│   ├── consensus_probe.py                the cross-model difficulty probe that was tried and rejected
 │   ├── fit_wb.py · fit_combiner.py       alternative decision fits (white-box only / behavioral comparison)
 │   ├── build_submission.py               build the Main and Small bundles (+ SHA-256 manifest)
-│   ├── check_bundle.py                   bundle sanity check
+│   ├── check_bundle.py · mock_predict_test.py   bundle checks: import / decision path with a fake model (no weights)
 │   ├── lb.py · parse_eval_log.py         leaderboard snapshot, evaluation-log diagnostics
 │   └── make_figures.py · cvutil.py       README figures, grouped cross-validation
 ├── cloud/                                GPU side (RunPod): generation, hidden states, benchmarks, scheduler
@@ -351,14 +435,15 @@ Details, numbers and fixes are in **[docs/ENGINEERING_NOTES.md](docs/ENGINEERING
 │   ├── scheduler.py · after_job.sh · watch.sh · collect_final.sh · pod.sh job queue and pod helpers
 │   └── setup_pod.sh · download_models.sh · bootstrap_pod.sh · run_all.sh · jobs_*.jsonl
 ├── data/                                 README (sources, licenses) + pool_manifest.csv -- no problem text
-├── runs/                                 results: probe artifacts (v1, v1p, v2), report CSVs, vLLM samples, benchmarks
-├── submissions/                          the exact bundles that were built (+ MANIFEST.md with SHA-256)
+├── runs/                                 results: probe artifacts (v1, v1p, v2, v3 + the v3b / v3p ablations), report CSVs, vLLM samples, benchmarks
+├── submissions/                          the exact bundles that were built, v1 ... v3 (+ MANIFEST.md with SHA-256)
+├── report/                               the technical report: submitted PDF, LaTeX source, figures, number scripts
 └── docs/
-    ├── METHOD.md                         full specification
+    ├── METHOD.md                         full specification, including the v3 rule
     ├── ENGINEERING_NOTES.md              measurements, failure modes, infrastructure
-    ├── SUBMISSION_LEDGER.md              plan, rules, per-submission ledger, v1 diagnosis
-    ├── EXPERIMENT_LOG.md                 dated lab notebook (E, I, P, B, M, V, A, C entries)
-    ├── REPORT_NOTES.md                   early report outline
+    ├── SUBMISSION_LEDGER.md              plan, rules, per-submission ledger, validation summary, final nomination
+    ├── EXPERIMENT_LOG.md                 dated lab notebook (E, I, P, B, M, V, A, C, T, S, R entries)
+    ├── REPORT_NOTES.md                   early report outline (the final report is in report/)
     ├── cloud_gpu_manual.ko.md            RunPod walkthrough (Korean)
     └── figures/
 ```
@@ -412,6 +497,20 @@ To run a case you need the checkpoint in the local Hugging Face cache and a GPU 
 competition): `python -c "from solution import are_robust; print(are_robust('Qwen/Qwen3.5-4B', ['<problem text>'], 'default'))"`.
 For the official ingestion/scoring programs use the organizers' [`getting-started`](https://github.com/aimo-interp/getting-started) repository.
 
+**D2. Rebuild the final (v3) artifacts and the report numbers (CPU, seconds; needs the pool from step B).**
+
+```bash
+python experiments/capability_threshold.py --art runs/v2/art --rho 0.7 --out /tmp/v3_art   # identical to runs/v3/art (prints the rho sweep on the official rows)
+python experiments/make_ablation.py --art /tmp/v3_art --mode blackbox  --out /tmp/v3b_art  # identical to runs/v3b/art
+python experiments/make_ablation.py --art /tmp/v3_art --mode probeonly --out /tmp/v3p_art  # identical to runs/v3p/art
+python experiments/mock_predict_test.py submissions/v3-main.zip submissions/v3-small.zip   # decision path of the nominated bundles, no weights needed (torch from requirements-runtime.txt)
+python report/report_numbers.py                                                           # every number of the report -> report/numbers.json
+```
+
+Checked on 14 Nov 2026 with the files in this repository: the three artifact sets are reproduced array for array (266, 196
+and 175 identical arrays), `report_numbers.py` reproduces all 145 values of `numbers.json`, and the SHA-256 of every bundle
+matches `submissions/MANIFEST.md`.
+
 **E. Regenerate the GPU data (about $80 on RunPod, 4 x RTX PRO 6000 pods).** See
 [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md#5-gpu-data-generation-compute-cost-and-scheduling); in short, on a pod with the
 repository at `/workspace/claude`:
@@ -425,8 +524,12 @@ bash cloud/run_all.sh                   # model download, vLLM sampling, prompt 
 
 ## 9. Limitations and next steps
 
-* **Tiny labelled set.** 80 rows, 33 problems, 27 template groups. The decision has no free parameter left after v2, but the
-  CV estimates carry wide error bars (per-configuration n of 7-15) and validation has a standard error of about 0.11.
+* **Tiny labelled set.** 80 rows, 33 problems, 27 template groups. The final decision has one free parameter, $\rho = 0.7$, set
+  with knowledge of the 0.74 training prevalence; the CV estimates carry wide error bars (per-configuration n of 7-15) and
+  validation has a standard error of about 0.11 (Main) / 0.13 (Small).
+* **Validation cannot confirm the white-box component.** The evidence for it is the 61 training rows with samples (AUC 0.82 vs
+  0.60, interval 0.04 to 0.41); on the 35 validation cases the black-box and probe-only ablations are within one case of the
+  final method.
 * **Distribution shift.** The probes are trained on 322 recent olympiad problems with 2-6 samples each; test problems are new
   and may be harder or differently phrased. Truncation (61% Qwen, 69% DeepSeek at 32k) biases the length targets downward.
 * **Uneven data.** DeepSeek has 144 problems with n = 2, Olmo 108 problems (progress states for 72); their probes are the weakest.
@@ -435,7 +538,9 @@ bash cloud/run_all.sh                   # model download, vLLM sampling, prompt 
 * **Not modeled:** the `expert_no_solution` family, which the test set may contain.
 * **Ideas not tried:** a 64k-token resample of truncated problems; snapshots of the hidden state at several token positions
   instead of the last step; per-model threshold shrinkage toward the pool median; ensembling layers; causal interventions
-  (ablating the length direction) for stronger white-box evidence; larger self-built perturbation sets with resampled labels.
+  (ablating the length direction) for stronger white-box evidence; larger self-built perturbation sets with resampled labels;
+  a longer token cap with fewer samples for gpt-oss and Skywork (estimated at 0.1-0.3 test cases of gain, so not worth the GPU
+  budget, log T9).
 
 ## 10. Data, licenses, compliance and AI disclosure
 
@@ -447,7 +552,10 @@ bash cloud/run_all.sh                   # model download, vLLM sampling, prompt 
   hypothesis in [the ledger](docs/SUBMISSION_LEDGER.md); validation problems were never printed or stored (the solution logs only
   model, features and timing); the submission uses no network and only the documented resources in `submissions/`.
 * **Validation was not used to select methods.** Selection used grouped CV on the official rows and the label-free pool. The v2
-  threshold change followed from a label-free diagnosis (section 4.5), and this repository says so.
+  threshold change followed from a label-free diagnosis (section 4.5), and this repository says so. v3 was chosen by mechanism
+  and scored on the training rows (section 4.6); its choice over v1p and over the probe-only ablation was re-checked on those
+  rows ([ledger](docs/SUBMISSION_LEDGER.md#why-v3-and-not-v1p-v2-or-v3p)). The validation scores of all variants are listed in
+  section 4.4, whatever they were.
 * **AI-assistance disclosure.** This project was carried out by the repository owner together with an AI coding agent, **Claude Code
   (Anthropic): Claude Opus 5.5 for the research, implementation, experiments and GPU orchestration, Claude Sonnet 5.5 for the
   packaging and documentation of this repository.** The agent wrote essentially all code, ran the analyses and drafted these
@@ -470,6 +578,12 @@ All times KST. The pipeline from a blank folder to a scored submission took abou
 | 27 Oct ~03:00 | balance reaches zero, pods stop; all data was already pulled |
 | 27 Oct 04:27 | v1 and v1p bundles built (CV AUC 0.796 / 0.752) |
 | 27 Oct 07:57-08:49 | Codabench: v1 scores 0.571, v1p 0.667; label-free diagnosis; 08:56 v2 built |
+| 28 Oct 01:22 | v3 (capability-aware threshold) and the black-box / probe-only ablations built; mock decision-path tests pass; a full CPU re-run from the raw data reproduces the artifacts bit for bit |
+| 28 Oct - 29 Oct | Codabench: v2-main 0.619; v3-main 0.619, v3-small 0.643, v2-small 0.643; black-box ablation v3b 0.619 / 0.571 |
+| 30 Oct | final nomination decided (v3-main + v3-small; v3 vs v1p re-checked on the training rows); the organizers fix the limit at 160 s per call |
+| 1-2 Nov | probe-only ablation v3p run on Codabench (0.667 / 0.571); the submission phase ends on 2 Nov |
+| 4 Nov | technical report submitted on OpenReview |
+| 13-14 Nov | this repository published (13 Nov) and brought to the final state: v3 bundles and artifacts, report, scripts, results (14 Nov) |
 
 ## 12. Citation, acknowledgements, license
 
