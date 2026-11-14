@@ -1,0 +1,195 @@
+{
+ "per_config": [
+  {
+   "config": "Qwen3.5-4B",
+   "pool": 322,
+   "prog_problems": 322,
+   "rho_prompt": 0.6928497257656956,
+   "rho_progress": 0.5378724233112003,
+   "rho_fused": 0.7180050241417644,
+   "train_rows": 12,
+   "train_robust": 8,
+   "auc_fused": 0.875,
+   "theta": -0.0389613561801788,
+   "prog_cap": 3072,
+   "prog_layer": 24,
+   "layer_len": 32,
+   "pool_len": "last",
+   "k": 32
+  },
+  {
+   "config": "Skywork-OR1-7B",
+   "pool": 322,
+   "prog_problems": 322,
+   "rho_prompt": 0.5158158560586279,
+   "rho_progress": 0.4752071276980605,
+   "rho_fused": 0.5645279990137162,
+   "train_rows": 12,
+   "train_robust": 9,
+   "auc_fused": 0.7777777777777778,
+   "theta": -0.05373263188280537,
+   "prog_cap": 4096,
+   "prog_layer": 21,
+   "layer_len": 21,
+   "pool_len": "last",
+   "k": 64
+  },
+  {
+   "config": "Olmo-3-7B-Think",
+   "pool": 108,
+   "prog_problems": 72,
+   "rho_prompt": 0.5297569712385798,
+   "rho_progress": 0.2640684288378674,
+   "rho_fused": 0.5488867929920832,
+   "train_rows": 9,
+   "train_robust": 7,
+   "auc_fused": 0.6428571428571428,
+   "theta": -0.03316045247922618,
+   "prog_cap": 2560,
+   "prog_layer": 32,
+   "layer_len": 16,
+   "pool_len": "last",
+   "k": 16
+  },
+  {
+   "config": "DeepSeek-R1-8B",
+   "pool": 144,
+   "prog_problems": 144,
+   "rho_prompt": 0.4363888673823663,
+   "rho_progress": 0.35781919089915704,
+   "rho_fused": 0.5048470720690883,
+   "train_rows": 10,
+   "train_robust": 7,
+   "auc_fused": 0.8095238095238095,
+   "theta": -0.03557738878421479,
+   "prog_cap": 3072,
+   "prog_layer": 36,
+   "layer_len": 27,
+   "pool_len": "last",
+   "k": 32
+  },
+  {
+   "config": "gpt-oss low",
+   "pool": 322,
+   "prog_problems": 322,
+   "rho_prompt": 0.39101069115171466,
+   "rho_progress": 0.9851910053356017,
+   "rho_fused": 0.9848693128954998,
+   "train_rows": 7,
+   "train_robust": 5,
+   "auc_fused": 0.8,
+   "theta": 0.1688601121914679,
+   "prog_cap": 1536,
+   "prog_layer": 36,
+   "layer_len": 24,
+   "pool_len": "mean",
+   "k": 40
+  },
+  {
+   "config": "gpt-oss medium",
+   "pool": 322,
+   "prog_problems": 322,
+   "rho_prompt": 0.45888420168426663,
+   "rho_progress": 0.7361252163561377,
+   "rho_fused": 0.7351993172212746,
+   "train_rows": 15,
+   "train_robust": 10,
+   "auc_fused": 1.0,
+   "theta": -0.011299095049980423,
+   "prog_cap": 1536,
+   "prog_layer": 18,
+   "layer_len": 24,
+   "pool_len": "mean",
+   "k": 40
+  },
+  {
+   "config": "gpt-oss high",
+   "pool": 322,
+   "prog_problems": 322,
+   "rho_prompt": 0.6257913943538954,
+   "rho_progress": 0.701864400553622,
+   "rho_fused": 0.7381224452317305,
+   "train_rows": 15,
+   "train_robust": 13,
+   "auc_fused": 0.7307692307692308,
+   "theta": 0.1601400393402181,
+   "prog_cap": 1536,
+   "prog_layer": 18,
+   "layer_len": 18,
+   "pool_len": "mean",
+   "k": 40
+  }
+ ],
+ "ablation": {
+  "all_rows": {
+   "n": 80,
+   "robust_rate": 0.7375,
+   "constant_robust": {
+    "acc": 0.7375,
+    "bal": 0.5
+   },
+   "probe_z": {
+    "auc": 0.768361581920904,
+    "acc": 0.7,
+    "bal": 0.6892655367231638
+   },
+   "fused_v2": {
+    "auc": 0.8038740920096852,
+    "acc": 0.7625,
+    "bal": 0.7163034705407587
+   },
+   "fused_v3": {
+    "auc": 0.8038740920096852,
+    "acc": 0.7875,
+    "bal": 0.7485875706214689
+   },
+   "auc_diff_fused_minus_probe_ci95": [
+    -0.06790649008141275,
+    0.11554832963635144
+   ]
+  },
+  "behaviour_rows": {
+   "n": 61,
+   "robust_rate": 0.7377049180327869,
+   "constant_robust": {
+    "acc": 0.7377049180327869,
+    "bal": 0.5
+   },
+   "blackbox_len_beh": {
+    "auc": 0.6027777777777777,
+    "acc": 0.7049180327868853,
+    "bal": 0.5784722222222223
+   },
+   "probe_z": {
+    "auc": 0.7902777777777777,
+    "acc": 0.7049180327868853,
+    "bal": 0.7194444444444444
+   },
+   "fused_v2": {
+    "auc": 0.8180555555555555,
+    "acc": 0.7704918032786885,
+    "bal": 0.7638888888888888
+   },
+   "fused_v3": {
+    "auc": 0.8180555555555555,
+    "acc": 0.8032786885245902,
+    "bal": 0.7861111111111111
+   },
+   "auc_diff_fused_minus_beh_ci95": [
+    0.03810992678725236,
+    0.41004886815770447
+   ],
+   "auc_diff_fused_minus_probe_ci95": [
+    -0.0915327594452415,
+    0.13114240704595298
+   ],
+   "configs": [
+    "Qwen3.5-4B",
+    "Skywork-OR1-7B",
+    "gpt-oss high",
+    "gpt-oss low",
+    "gpt-oss medium"
+   ]
+  }
+ }
+}
