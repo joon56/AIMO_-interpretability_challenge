@@ -13,3 +13,13 @@ See [docs/SUBMISSION_LEDGER.md](../docs/SUBMISSION_LEDGER.md) for what each one 
 | 2026-10-27 04:27 | v1p-small.zip | f251768fdec4bf96 | 3623335 | v1 PROBE-ONLY: z_len (CV AUC .752 bal .677 n=80), no sampling |
 | 2026-10-27 08:56 | v2-main.zip | 337db860c10d0941 | 8706063 | v2: v1 features, threshold at per-model pool median (len_fused<0); fallback z_len<0 |
 | 2026-10-27 08:56 | v2-small.zip | 61e197e6d2d79bdb | 5430117 | v2: v1 features, threshold at per-model pool median (len_fused<0); fallback z_len<0 |
+| 2026-10-28 01:22 | v3-main.zip | 296ed6b0ba5bfc3c | 8706989 | **v3, nominated for the Main track**: v2 features (len_fused), per-config capability-aware threshold theta_c = 0.7-quantile of the pool out-of-fold len_fused over reliably-solved problems (label-free); fallback z_len <= theta_z |
+| 2026-10-28 01:22 | v3-small.zip | 4a8ed026dd5f7acd | 5430651 | **v3, nominated for the Small track**: same rule, four small models |
+| 2026-10-28 01:22 | v3b-main.zip | 7adda6a7f1bc36e0 | 5808914 | ABLATION black-box: same K / token-cap sampling, decision len_beh <= 0 (censored MLE from finish flags and lengths), no hidden-state readout; failure -> True |
+| 2026-10-28 01:22 | v3b-small.zip | b53dff7aa080f583 | 3624192 | ABLATION black-box (Small) |
+| 2026-10-28 01:22 | v3p-main.zip | 0f19f535440d3869 | 5808165 | ABLATION probe-only: prompt-state z_len <= theta_z (capability threshold), no sampling |
+| 2026-10-28 01:22 | v3p-small.zip | b1d29dadb118686f | 3623772 | ABLATION probe-only (Small) |
+
+Not published: the contract-test, runtime-test (`v0rt`) and `v1pre` bundles. They were superseded within hours and carry
+placeholder or partial artifacts. All bundles here contain the same code as [`../src`](../src); only the `.npz` artifacts
+(thresholds, probe weights) differ. `experiments/mock_predict_test.py` checks the decision path of a bundle without model weights.
