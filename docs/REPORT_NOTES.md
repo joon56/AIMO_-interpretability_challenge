@@ -1,4 +1,4 @@
-<!-- Working notes written before the final numbers existed; the README holds the final results. -->
+<!-- Working notes written on 26-27 Oct, before the final numbers existed. The final report is ../report/AIMO_report.pdf; the README holds the final results. -->
 # Draft — AIMO Interpretability Challenge technical report (working notes, numbers TBD)
 
 ## Thesis

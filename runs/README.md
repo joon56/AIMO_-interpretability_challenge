@@ -14,6 +14,9 @@ runs/
 │   ├── art_probeonly/             v1p artifacts: prompt-state length probe only, no sampling           (7 x .npz)
 │   └── {train_probe,train_progress,fuse}.log   console output of the three training steps
 ├── v2/art/                        v2 artifacts = v1 art_fused with the threshold moved to the pool median (7 x .npz)
+├── v3/art/                        v3 artifacts (nominated) = v2 with the capability-aware thresholds       (7 x .npz)
+├── v3b/art/                       v3 black-box ablation: decision on len_beh from the same samples         (7 x .npz)
+├── v3p/art/                       v3 probe-only ablation: prompt-state z_len at its capability threshold   (7 x .npz)
 └── pod/runs/
     ├── gen/                       vLLM samples: answers, lengths, finish reasons (one jsonl per config and shard)
     ├── behavior/                  the submission's own sampler run on official train cases (5 configs, 74 cases)
@@ -61,10 +64,17 @@ config's pool median (the "oracle" columns, they use the generated samples of th
 **`*.npz` artifacts** -- one file per config, plain arrays (no pickle). Schema in [../docs/METHOD.md](../docs/METHOD.md#artifact-format).
 Load with `numpy.load(path, allow_pickle=False)`.
 
-## Provenance of the three artifact sets
+## Provenance of the artifact sets
 
 | set | built by | decision |
 |---|---|---|
 | `v1/art_probeonly` (v1p) | `experiments/train_probe.py` | logistic on `z_len` (balanced weights): robust iff `z_len <= -0.079` |
 | `v1/art_fused` (v1) | `train_probe.py` -> `train_progress.py` -> `fuse.py` | logistic on `len_fused`: robust iff `len_fused <= -0.157` |
 | `v2/art` (v2) | `experiments/make_v2_artifacts.py` on `v1/art_fused` | robust iff `len_fused <= 0` |
+| `v3/art` (v3, nominated) | `experiments/capability_threshold.py --art runs/v2/art --rho 0.7` | robust iff `len_fused <= theta_c`; probes and fusion weights are v2's; keys `cap_rho`, `cap_theta`, `cap_theta_z` added ([METHOD.md](../docs/METHOD.md#the-v3-rule-capability-aware-threshold)) |
+| `v3b/art` (black-box ablation) | `experiments/make_ablation.py --art runs/v3/art --mode blackbox` | progress probe and fusion removed; robust iff the censored log-normal length estimate `len_beh <= 0`; a sampling failure returns `True` |
+| `v3p/art` (probe-only ablation) | `experiments/make_ablation.py --art runs/v3/art --mode probeonly` | no sampling; robust iff `z_len <= theta_z` |
+
+`capability_threshold.py` reproduces `v3/art` from `v2/art` bit for bit (checked 14 Nov 2026 with the files published here:
+266 of 266 arrays identical), and `make_ablation.py` reproduces `v3b/art` and `v3p/art` from `v3/art` (196 and 175 arrays identical). The report CSVs under `v1/report/` carry `pid` instead of problem text, which is all the scripts
+need besides the rebuilt problem pool (`experiments/download_data.py --build`).

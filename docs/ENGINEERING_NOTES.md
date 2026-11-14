@@ -18,12 +18,13 @@ raw entries are in [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md) (ids `I*`, `B*`, `E3`)
 | libraries | torch 2.12.1 (CUDA 13.2), transformers 5.13.0, accelerate 1.13.0, scikit-learn 1.8.0, joblib 1.5.3, pandas 3.0.3; **no vLLM** |
 | hardware | one RTX PRO 6000 Blackwell, 96 GB, shared (about 30 GB free with gpt-oss-120b loaded) |
 | network / weights | offline; checkpoints in `/app/data/huggingface`, `local_files_only=True` |
-| process model | one fresh process per case (no state survives), about 170 s per case on the test run, 4,200 s per validation run |
+| process model | one fresh process per case (no state survives); about 170 s per case at planning time, and on 30 Oct the organizers fixed it at 160 s per call, an overrun counting as a wrong answer; 4,200 s per validation run |
 | per-case fixed cost | import 2.6 s; load 2.3 s (small models) / 6-7 s (gpt-oss-120b); prompt forward 0.2-0.4 s (gpt-oss 0.6-3.5 s) |
 | validation sets | Main 21 cases (gpt-oss low 5 / medium 3 / high 3, Skywork 3, DeepSeek 3, Qwen 2, Olmo 2), Small 14 cases; balanced per model |
 | constant baselines | always-`True` scores 0.476 on Main (10 of 21 cases robust) |
 
-Consequence: a probe-only decision needs about 10-25 s per case, leaving roughly 110-130 s for budgeted sampling.
+Consequence: a probe-only decision needs about 10-25 s per case, leaving roughly 110-130 s for budgeted sampling. The full v3
+pipeline measured 88-104 s per case on the validation server, so the final 160 s limit leaves about 55 s of margin.
 
 ## 2. The five checkpoints
 

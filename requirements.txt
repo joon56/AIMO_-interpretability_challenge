@@ -7,5 +7,5 @@ scipy==1.18.1
 scikit-learn==1.8.0
 
 # optional
-matplotlib>=3.9      # experiments/make_figures.py
+matplotlib>=3.9      # experiments/make_figures.py, report/make_figures.py
 truststore==0.10.5   # TLS-intercepting networks: experiments/download_data.py picks it up automatically

@@ -6,7 +6,7 @@ This document specifies the pipeline of [`src/aimo_robust`](../src/aimo_robust) 
 - [1. Notation and targets](#1-notation-and-targets)
 - [2. Prompt-state probe (`z_len`)](#2-prompt-state-probe-z_len)
 - [3. Progress probe (`len_prog`)](#3-progress-probe-len_prog)
-- [4. Fusion and decision](#4-fusion-and-decision)
+- [4. Fusion and decision](#4-fusion-and-decision), including [the v3 rule](#the-v3-rule-capability-aware-threshold) (final)
 - [5. Test-time procedure and safety rails](#5-test-time-procedure-and-safety-rails)
 - [6. Black-box comparison features](#6-black-box-comparison-features)
 - [7. Artifact format](#artifact-format)
@@ -103,17 +103,61 @@ estimate against $m_c$: Qwen 0.72, Skywork 0.56, Olmo 0.55, DeepSeek 0.50, gpt-o
 |---|---|---|
 | v1 | robust iff `len_fused` $\le -0.157$ (logit $=-0.336-2.142\cdot$`len_fused`) | class-balanced logistic regression on the 80 official labelled rows |
 | v1p | robust iff $z_{len}\le-0.079$ | same, on $z_{len}$ only, no sampling |
-| **v2** | robust iff `len_fused` $\le 0$ (logit $=-2.142\cdot$`len_fused`) | slope of v1, intercept removed: the threshold is each model's pool median |
+| v2 | robust iff `len_fused` $\le 0$ (logit $=-2.142\cdot$`len_fused`) | slope of v1, intercept removed: the threshold is each model's pool median |
+| **v3 (final)** | robust iff `len_fused` $\le\theta_c$, $\theta_c$ = 0.7-quantile of the pool `len_fused` over the problems the configuration reliably solves | label-free, same features and slope as v2; see below |
 
 The official rows are 74% robust, the validation/test populations are balanced per model (the dataset card says so). v1
 inherited the intercept of the unbalanced rows and predicted "robust" for 3 of 21 validation cases; v2 removes the
 intercept. The v2 change uses no validation label: it follows from the stated prevalence mismatch, and
 `experiments/make_v2_artifacts.py` is the complete diff.
 
+### The v3 rule (capability-aware threshold)
+
+*Why.* Validation and test cases exist only for (configuration, problem) pairs whose original answer the model gets
+consistently right (organizers' Q&A, 15-16 Oct), and the sets are balanced per problem and per model. The pool median of
+`len_fused` also counts problems the model fails, so it misplaces the boundary for configurations that solve few pool problems
+reliably or that answer hard problems quickly and wrongly. gpt-oss-120b at low effort is the extreme case: over the whole pool,
+shorter traces are *less* often correct (Spearman between the solve rate and $-m_c$ is $-0.20$, against $+0.53$ to $+0.97$ for the
+other configurations), because low effort stops early on problems it fails. Inside the population that cases come from, the
+ordering returns: restricted to $\mathcal B_c$ (below), `len_fused` correlates positively with the *other* configurations' failure rate
+on the same problem for every configuration (gpt-oss low $+0.22$, the others $+0.21$ to $+0.68$; experiment log T1).
+
+*Rule* (`experiments/capability_threshold.py`). $\mathcal B_c$ is the set of pool problems on which at least one sample finished and
+every finished sample is correct; samples cut at 32k count as unknown, because the labels use 100k tokens. $\theta_c$ is the
+$\rho$-quantile of the pool out-of-fold `len_fused` over $\mathcal B_c$ with $\rho=0.7$. If sampling fails, the fallback decision applies the
+same rule to $z_{len}$ with its own $\theta^z_c$. A case is robust iff the feature is $\le$ its threshold.
+
+| configuration | $\theta_c$ (`len_fused`) | $\theta^z_c$ (`z_len`) |
+|---|---:|---:|
+| Qwen3.5-4B | -0.04 | -0.05 |
+| Skywork-OR1-Math-7B | -0.05 | -0.06 |
+| Olmo-3-7B-Think | -0.03 | -0.03 |
+| DeepSeek-R1-0528-Qwen3-8B | -0.04 | -0.08 |
+| gpt-oss-120b, low | **+0.17** | **+0.18** |
+| gpt-oss-120b, medium | -0.01 | +0.03 |
+| gpt-oss-120b, high | **+0.16** | **+0.16** |
+
+*What the labels inform.* Nothing is fitted to the official rows; they only score the rules. The one number they inform is
+$\rho$: 0.7 sits slightly below the natural robust rate among consistently solved training cases (0.74), to hedge toward balanced
+test populations. Scored on the 80 official rows (accuracy / balanced accuracy; experiment log T2):
+
+| rule | accuracy | balanced accuracy |
+|---|---:|---:|
+| v2, pool median | 0.762 | 0.716 |
+| $\rho=0.5$ | 0.700 | 0.720 |
+| $\rho=0.6$ | 0.762 | 0.762 |
+| **$\rho=0.7$ (v3)** | **0.787** | **0.749** |
+| $\rho=0.75$ | 0.775 | 0.709 |
+| $\rho=0.8$ | 0.750 | 0.646 |
+
+The gain over v2 is two to three cases out of 80, so the argument for v3 is the mechanism above, not the score. In the artifacts
+the rule is `comb_b = -comb_w * theta_c` and `cal_b = 2 * theta_z`, so `predict.py` needs no change: v3 bundles contain the same
+code as v1 and v2, and `capability_threshold.py` rebuilds `runs/v3/art` from `runs/v2/art` bit for bit.
+
 ## 5. Test-time procedure and safety rails
 
-`src/solution.py::are_robust` is called once per case in a fresh process (about 170 s budget including imports). For each
-problem `predict_one` does:
+`src/solution.py::are_robust` is called once per case in a fresh process. The organizers enforce 160 s per call in the final
+evaluation (imports and model load included; an overrun counts as a wrong answer). For each problem `predict_one` does:
 
 1. load the artifact for `(model, effort)` (fallback: the `default` effort file), the round-trip-checked tokenizer and the model (bf16);
 2. one forward pass $\to$ $z_{len}$ (and $z_{solve}$ for the fallback rule);
@@ -152,6 +196,10 @@ On the 61 official rows that have behavior samples: `len_fused` AUC 0.811 / bala
 0.623 / 0.613, both together 0.812 / 0.744, with `agree_logit` added 0.764. Hidden-state signals subsume the black-box
 finish-rate information (experiment A1 in the log).
 
+With the final v3 rule the report compares the same 61 rows: the hidden-state estimate reaches AUC 0.818 and balanced accuracy
+0.786, the black-box `len_beh` rule 0.603 and 0.578; the 95% bootstrap interval of the AUC gap (resampling template groups) is
+0.04 to 0.41 (`report/report_numbers.py`, `report/numbers.json`). The validation board does not separate the two (22 vs 21 of 35).
+
 ## Artifact format
 
 One `numpy` `.npz` per configuration (`<model with / -> _>__<effort>.npz`), arrays only, no pickle. Probe blocks use the suffix
@@ -165,14 +213,16 @@ One `numpy` `.npz` per configuration (`<model with / -> _>__<effort>.npz`), arra
 | `prog_layer`, `prog_cap`, `prog_mu`, `prog_sd`, `prog_pca`, `prog_w`, `prog_b`, `prog_center` | | progress probe and its token cap |
 | `fuse_a`, `fuse_center` | `[3]`, scalar | $a_0,a_1,a_2$ and the pool median of the fused value |
 | `comb_feats`, `comb_w`, `comb_b` | `[1]`, `[1]`, scalar | decision on `len_fused`: `logit = comb_b + comb_w * len_fused` |
-| `cal_feats`, `cal_w`, `cal_b` | | fallback decision (v1: on `z_solve, z_len`; v1p: `z_len`; v2: `z_len`, weight -2, bias 0) |
+| `cal_feats`, `cal_w`, `cal_b` | | fallback decision (v1: on `z_solve, z_len`; v1p: `z_len`; v2: `z_len`, weight -2, bias 0; v3: `z_len`, weight -2, `cal_b = 2 * theta_z`) |
+| `cap_rho`, `cap_theta`, `cap_theta_z` | scalar | v3 only: the quantile and the two thresholds written by `capability_threshold.py` (`comb_b = -comb_w * cap_theta`) |
 | `beh_mu_center`, `beh_sigma`, `beh_tau` | scalar | pool median / within-problem spread / spread of mean log length (black-box estimator) |
 
 The arithmetic is in `aimo_robust.predict.probe_z`: `z = pca @ ((h - mu) / sd) @ w + b`.
 
 ## 8. Chosen hyper-parameters per configuration
 
-From `runs/v2/art` (layer index into `hidden_states`; 0 = embeddings).
+From `runs/v2/art` (layer index into `hidden_states`; 0 = embeddings). v3 shares every probe and fusion parameter; only the
+decision thresholds differ (section 4).
 
 | configuration | length probe (layer, pooling) | progress probe (layer, cap) | fusion $a_0, a_1, a_2$ |
 |---|---|---|---|
@@ -197,5 +247,5 @@ Written down on 26 Oct 2026, 20:00 KST, before any model had been sampled (`docs
 | D2 | truncation at 32k $>25\%$ for a model $\Rightarrow$ resample truncated problems at 64k | triggered for Qwen (60.6%) and DeepSeek (69.4%); not done for lack of GPU budget; lengths of truncated samples count at the cap (lower bound) and the black-box spread is estimated from finished samples |
 | D3 | keep a probe only if held-out Spearman $\ge0.5$ | met by Qwen, Skywork, Olmo, gpt-oss high; DeepSeek (0.44) and gpt-oss low / medium (0.39 / 0.46) are below, which is why the progress probe was added and the two estimates fused |
 | D4 | keep sampling only if it adds $\ge0.02$ OOF AUC | fusion adds 0.044 AUC (0.752 $\to$ 0.796): kept |
-| D5 | the validation set is a sanity check; never tune thresholds to it | v1 scored 0.571; the diagnosis (prevalence mismatch) is label-free and led to v2 |
-| D6 | nominate the best combined candidate plus a decorrelated hedge (probe-only) | -- |
+| D5 | the validation set is a sanity check; never tune thresholds to it | v1 scored 0.571; the diagnosis (prevalence mismatch) is label-free and led to v2 (0.619 on Main) and then to v3, whose threshold comes from the pool, not from validation (0.619 Main, 0.643 Small) |
+| D6 | nominate the best combined candidate plus a decorrelated hedge (probe-only) | not followed as written: the two nominations are one per track (v3-main, v3-small); the probe-only hedge was run as the ablation (v3p) and scored 0.667 Main / 0.571 Small |
